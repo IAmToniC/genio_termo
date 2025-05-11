@@ -1,4 +1,5 @@
 import operator
+import os
 
 def carregar_palavras(arquivo='palavras.txt'):
     palavras_com_frequencia = {}
@@ -34,22 +35,28 @@ def obter_letras_certas(max_letras=5):
             print("Entrada inválida. Use o formato 'letra posição' (ex: 'e 2') ou '0'.")
     return letras_posicao_certa
 
-def obter_letras_presentes_posicao_errada():
-    letras_presentes = []
+def obter_letras_presentes_posicoes_erradas():
+    letras_erradas = {}
     print("\n--- Letras Presentes (Posição Errada) ---")
-    print("Digite as letras que estão na palavra, mas você não sabe a posição. Ex: 'rio'. Digite '0' para parar ou se não houver.")
+    print("Digite a letra e a posição (1-5) onde ela NÃO está. Ex: 'a 1'. Digite '0' para parar.")
     while True:
-        entrada = input("Letras presentes (ou 0 para parar): ").lower().strip()
+        entrada = input("Letra e posição (ou 0 para parar): ").lower().strip()
         if entrada == '0':
             break
-        if not entrada.isalpha() and entrada != '':
-            print("Entrada inválida. Digite apenas letras ou '0'.")
-            continue
-        for letra in entrada:
-            if letra not in letras_presentes:
-                letras_presentes.append(letra)
-        break 
-    return letras_presentes
+        try:
+            letra, pos_str = entrada.split()
+            pos = int(pos_str)
+            if not ('a' <= letra <= 'z' and len(letra) == 1 and 1 <= pos <= 5):
+                raise ValueError
+            if letra not in letras_erradas:
+                letras_erradas[letra] = []
+            if pos in letras_erradas[letra]:
+                print("Posição já informada para essa letra. Tente novamente.")
+                continue
+            letras_erradas[letra].append(pos)
+        except ValueError:
+            print("Entrada inválida. Use o formato 'letra posição' (ex: 'a 1') ou '0'.")
+    return letras_erradas
 
 def obter_letras_ausentes():
     letras_ausentes = []
@@ -87,36 +94,32 @@ def encontrar_solucoes(palavras_frequencia, certas, presentes_erradas, ausentes)
         if not valida:
             continue
 
-        for letra_p in presentes_erradas:
-            if letra_p not in palavra:
+        for letra, posicoes in presentes_erradas.items():
+            if letra not in palavra:
                 valida = False
+                break
+            for pos in posicoes:
+                if palavra[pos-1] == letra:
+                    valida = False
+                    break
+            if not valida:
                 break
 
         if not valida:
-            continue
-
-        temp_palavra_lista = list(palavra)
-        for pos, letra in certas.items():
-            if temp_palavra_lista[pos-1] == letra:
-                temp_palavra_lista[pos-1] = None
-
-        ok_presentes = True
-        for letra_p in presentes_erradas:
-            if letra_p in temp_palavra_lista:
-                idx = temp_palavra_lista.index(letra_p)
-                temp_palavra_lista[idx] = None
-            else:
-                ok_presentes = False
-                break
-        if not ok_presentes:
             continue
 
         solucoes[palavra] = freq
 
     return dict(sorted(solucoes.items(), key=operator.itemgetter(1), reverse=True))
 
-
 def main():
+
+    sistema = os.name
+    if sistema == 'nt': 
+        os.system('cls')
+    else: 
+        os.system('clear')
+
     print("Bem-vindo ao Solutor de Termo!")
     print("Quanto mais informação você fornecer, melhores serão as sugestões.")
 
@@ -125,9 +128,9 @@ def main():
         return
 
     letras_certas = obter_letras_certas()
-    letras_presentes_erradas_input = obter_letras_presentes_posicao_errada()
+    letras_presentes_erradas_input = obter_letras_presentes_posicoes_erradas()
     letras_certinhas = list(letras_certas.values())
-    letras_presentes_erradas = [l for l in letras_presentes_erradas_input if l not in letras_certinhas]
+    letras_presentes_erradas = {l: posicoes for l, posicoes in letras_presentes_erradas_input.items() if l not in letras_certinhas}
 
     letras_ausentes_input = obter_letras_ausentes()
     letras_ausentes = [l for l in letras_ausentes_input if l not in letras_certinhas and l not in letras_presentes_erradas]
@@ -143,7 +146,7 @@ def main():
 
     print("\n--- Buscando soluções ---")
     print(f"Certas (posição: letra): {letras_certas}")
-    print(f"Presentes (não na posição certa ou já conhecidas): {letras_presentes_erradas}")
+    print(f"Presentes (não na posição informada): {letras_presentes_erradas}")
     print(f"Ausentes: {letras_ausentes}")
 
     solucoes_finais = encontrar_solucoes(palavras_frequencia, letras_certas, letras_presentes_erradas, letras_ausentes)
